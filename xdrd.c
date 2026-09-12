@@ -80,6 +80,7 @@ typedef struct server
     char* password; // server password
     int maxusers; // number of allowed users at the same time
     int poweroff; // power tuner off when nobody is connected
+    int stream_scan; // relay scan responses as points complete, instead of only once finished
 
     char* f_exec; // command to run after first user has connected
     char* l_exec; // command to run after last user has disconnected
@@ -143,6 +144,7 @@ int main(int argc, char* argv[])
 
     server.background = 0;
     server.guest = 0;
+    server.stream_scan = 0;
     server.password = NULL;
     server.maxusers = DEFAULT_USERS;
     server.f_exec = NULL;
@@ -182,7 +184,7 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    while((c = getopt(argc, argv, "hbgxt:s:u:p:f:l:")) != -1)
+    while((c = getopt(argc, argv, "hbgxSt:s:u:p:f:l:")) != -1)
     {
         switch(c)
         {
@@ -201,6 +203,10 @@ int main(int argc, char* argv[])
 
         case 'x':
             server.poweroff = 1;
+            break;
+
+        case 'S':
+            server.stream_scan = 1;
             break;
 
         case 't':
@@ -308,9 +314,9 @@ void show_usage(char* arg)
     printf("%s [ -s serial ] [ -t port ] [ -u users ]\n", arg);
     printf("%*s [ -p password ] [ -f command ] [ -l command ]\n", (int)strlen(arg), "");
 #ifndef __WIN32__
-    printf("%*s [ -hgxb ]\n", (int)strlen(arg), "");
+    printf("%*s [ -hgxSb ]\n", (int)strlen(arg), "");
 #else
-    printf("%*s [ -hgx ]\n", (int)strlen(arg), "");
+    printf("%*s [ -hgxS ]\n", (int)strlen(arg), "");
 #endif
     printf("options:\n");
     printf("  -s  serial port (default %s)\n", DEFAULT_SERIAL);
@@ -320,6 +326,7 @@ void show_usage(char* arg)
     printf("  -h  show this help list\n");
     printf("  -g  allow guest login (read-only access)\n");
     printf("  -x  power the tuner off after last user has disconnected\n");
+    printf("  -S  stream scan responses as points complete, instead of only once finished\n");
     printf("  -f  execute the specified command after first user has connected\n");
     printf("  -l  execute the specified command after last user has disconnected\n");
 #ifndef __WIN32__
@@ -745,7 +752,7 @@ void serial_loop()
                 pos++;
 
             /* stream scan responses as points complete */
-            if(buff[0] == 'U' && buff[pos-1] == ',')
+            if(server.stream_scan && buff[0] == 'U' && buff[pos-1] == ',')
             {
                 msg_send(buff+sent, pos-sent);
                 sent = pos;
