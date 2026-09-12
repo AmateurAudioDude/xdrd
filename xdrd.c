@@ -689,6 +689,7 @@ void serial_loop()
 {
     char buff[SERIAL_BUFFER];
     int pos = 0;
+    int sent = 0; /* bytes of current line already relayed */
 #ifdef __WIN32__
     DWORD state, len_in = 0;
     BOOL fWaitingOnRead = FALSE;
@@ -742,14 +743,22 @@ void serial_loop()
         {
             if(pos != SERIAL_BUFFER-1)
                 pos++;
+
+            /* stream scan responses as points complete */
+            if(buff[0] == 'U' && buff[pos-1] == ',')
+            {
+                msg_send(buff+sent, pos-sent);
+                sent = pos;
+            }
             continue;
         }
         buff[pos] = 0;
         if(pos)
             msg_parse_serial(buff[0], buff+1);
         buff[pos] = '\n';
-        msg_send(buff, pos+1);
+        msg_send(buff+sent, pos+1-sent);
         pos = 0;
+        sent = 0;
     }
 #ifdef __WIN32__
     CloseHandle(server.serialfd);
